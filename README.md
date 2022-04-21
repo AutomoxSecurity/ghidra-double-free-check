@@ -1,7 +1,9 @@
 # ghidra-double-free-check
 
 ## What is this?
-This project is a Ghidra script that is used to detect double free vulnerabilities within 64-bit PE or ELF applications.
+This project is a Ghidra script that is used to detect double free vulnerabilities within 64-bit PE or ELF applications. Check out the blog post on this script to learn more about how it detects these vulnerabilities.
+
+https://www.automox.com/blog/double-free-vulnerabilities-ghidra
 
 ## How do I run this?
 Place the script within the Ghidra scripting folder. Then within Ghidra, run it via the Window -> Script Manager.

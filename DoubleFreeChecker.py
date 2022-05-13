@@ -1,4 +1,14 @@
-# Checks the program for Double Free Vulnerabilities in x64 Applications
+# Checks the program for Double Free Vulnerabilities in Windows x64 Applications
+
+'''
+Things to add/work on for tracing: 
+
+Indirect function calls/function pointer
+https://www.diffchecker.com/qdoX8gc5
+https://www.geeksforgeeks.org/function-pointer-in-c/
+
+RDI in free() being assigned via XCHG instruction
+'''
 
 program_name = currentProgram.getName()
 print("Searching {} for Double Free issues...\n".format(program_name))
@@ -56,15 +66,18 @@ def listRefCalls(function_list):
         for ref in refs:
             if ref.getReferenceType().isCall():
                 call_addr = ref.getFromAddress()
-                
-                call_func = getFunctionContaining(call_addr).getName()
-                call_addr_offset = call_addr.getOffset()
-                call_info = {
-                    'address': call_addr,
-                    'function': call_func,
-                    'offset': call_addr_offset
-                }
-                call_info_list.append(call_info)
+                try:
+                    call_func = getFunctionContaining(call_addr).getName()
+                    call_addr_offset = call_addr.getOffset()
+                    call_info = {
+                        'address': call_addr,
+                        'function': call_func,
+                        'offset': call_addr_offset
+                    }
+                    call_info_list.append(call_info)
+                except:
+                    print('Failed to find function for XREF at {}, skipping.'.format(call_addr))
+                    continue
     return call_info_list
 
 '''
@@ -157,6 +170,9 @@ def traceInterFuncInstructions(current_instruction, target_register, return_chec
         else:
             # We need to check if we're at the start of a function, obvious can't be reliably tracing if we have no idea where we are.
             if current_instruction.getAddress() == getFunctionContaining(current_instruction.getAddress()).getEntryPoint():
+                if not call_trace:
+                    print('Failed to trace instructions within the function.')
+                    return None
                 call_trace = traceExterCallInstructions(call_trace)
                 return call_trace # Due to recursion, we will hit the CALL return, allowing us to also return here. 
             elif current_instruction.getMnemonicString() == "MOV": # We're only watching register changes from MOV
@@ -183,7 +199,7 @@ def traceInterFuncInstructions(current_instruction, target_register, return_chec
                         else:
                             return traceInterFuncInstructions(current_instruction.getPrevious(), dst_value, False, call_trace)
         if count == max_count: # Setting the max count so that we dont get any FPs for the exter-func trace.
-            print('failed to find any more register tracings within {} instructions'.format(str(count)))
+            print('Failed to find any more register tracings within {} instructions.'.format(str(count)))
             break
         current_instruction = current_instruction.getPrevious()
 
@@ -319,6 +335,7 @@ def main():
     if not free_list:
         print('No symbols for free() were identified.')
         return 0
+
     fcall_info_list = listRefCalls(free_list) # An array of dictionaries containing address, function name, and offset of all free reference calls
     full_trace_list = obtainAllFunctionTraces(fcall_info_list, target_reg)
     
